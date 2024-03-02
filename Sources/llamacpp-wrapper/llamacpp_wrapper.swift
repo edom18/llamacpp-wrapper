@@ -1,9 +1,13 @@
 import llama
 import Foundation
 
+public typealias completion_callback = @convention(c) (UnsafeMutablePointer<CChar>) -> Void
+
 public class LlamaWrapper {
     let NS_PER_S = 1_000_000_000.0
     var llamaContext: LlamaContext?
+    
+    var message: String = ""
     
     init() {
         
@@ -15,23 +19,26 @@ public class LlamaWrapper {
     
     public func complete(text: String, completion: completion_callback) async -> Void {
         
-        var message: String = ""
+        self.message = ""
         
         let t_start = DispatchTime.now().uptimeNanoseconds
         await self.llamaContext?.completion_init(text: text)
         let t_heat_end = DispatchTime.now().uptimeNanoseconds
         let t_heat = Double(t_heat_end - t_start) / NS_PER_S
         
-        message += "\(text)"
+        self.message += "\(text)"
         
         guard let llamaContext = self.llamaContext else {
-            completion(-1)
+            let faileMessage = strdup("Failed to create text.")
+            completion(faileMessage!)
             return
         }
         
         while await llamaContext.n_cur < llamaContext.n_len {
             let result = await llamaContext.completion_loop()
-            message += "\(result)"
+            self.message += "\(result)"
+            
+            print(result)
         }
         
         let t_end = DispatchTime.now().uptimeNanoseconds
@@ -39,14 +46,16 @@ public class LlamaWrapper {
         let tokens_per_second = Double(await llamaContext.n_len) / t_generation
         
         await llamaContext.clear()
-        message += """
+        self.message += """
         \n
         Done
         Heat up took \(t_heat)s
         Generated \(tokens_per_second) t/s\n
         """
         
-        completion(132)
+        let messagePtr = strdup(self.message)
+        
+        completion(messagePtr!)
     }
 }
 
@@ -64,8 +73,6 @@ public func create_instance(_ pathPtr: UnsafePointer<CChar>) -> UnsafeMutableRaw
         return Unmanaged.passRetained(wrapper).toOpaque()
     }
 }
-
-public typealias completion_callback = @convention(c) (Int32) -> Void
 
 @_cdecl("llama_complete")
 public func llama_complete(_ pointer: UnsafeMutableRawPointer, _ textPtr: UnsafePointer<CChar>, _ completion: completion_callback) -> Void {
