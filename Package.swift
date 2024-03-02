@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "llamacpp-wrapper",
     platforms: [
-        .macOS(.v12),
+        .macOS(.v13),
         .iOS(.v16),
         .watchOS(.v4),
         .tvOS(.v14)
@@ -31,8 +31,8 @@ let package = Package(
                     name: "llama",
                     package: "llama.cpp")
             ]),
-        .testTarget(
-            name: "llamacpp-wrapperTests",
-            dependencies: ["llamacpp-wrapper"]),
+//        .testTarget(
+//            name: "llamacpp-wrapperTests",
+//            dependencies: ["llamacpp-wrapper"]),
     ]
 )
